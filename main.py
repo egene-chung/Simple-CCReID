@@ -30,7 +30,7 @@ VID_DATASET = ['ccvid']
 
 
 def parse_option():
-    parser = argparse.ArgumentParser(description='Train clothes-changing re-id model with clothes-based adversarial loss')
+    parser = argparse.ArgumentParser('LTCC ReID Training')
     parser.add_argument('--cfg', type=str, required=True, metavar="FILE", help='path to config file')
     # Datasets
     parser.add_argument('--root', type=str, help="your root path to data directory")
@@ -41,7 +41,11 @@ def parse_option():
     parser.add_argument('--amp', action='store_true', help="automatic mixed precision")
     parser.add_argument('--eval', action='store_true', help="evaluation only")
     parser.add_argument('--tag', type=str, help='tag for log file')
-    parser.add_argument('--gpu', default='0', type=str, help='gpu device ids for CUDA_VISIBLE_DEVICES')
+    parser.add_argument('--gpu', default='4', type=str, help='gpu device ids for CUDA_VISIBLE_DEVICES')
+    parser.add_argument("--diffusion-aug", action="store_true", help="Enable diffusion augmentation")
+    parser.add_argument("--aug-prob", type=float, default=0.3, help="Probability for diffusion augmentation")
+    parser.add_argument("--sd-model", type=str, default="runwayml/stable-diffusion-v1-5", help="Stable Diffusion model name")
+    parser.add_argument("--controlnet", type=str, default="lllyasviel/control_v11p_sd15_openpose", help="ControlNet model name")
 
     args, unparsed = parser.parse_known_args()
     if args.dataset in VID_DATASET:

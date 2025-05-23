@@ -93,15 +93,13 @@ def build_vid_transforms(config):
 
 def build_dataloader(config):
     dataset = build_dataset(config)
-    # video dataset
+    # video dataset 인 경우
     if config.DATA.DATASET in VID_DATASET:
         spatial_transform_train, spatial_transform_test, temporal_transform_train, temporal_transform_test = build_vid_transforms(config)
-
         if config.DATA.DENSE_SAMPLING:
             train_sampler = DistributedRandomIdentitySampler(dataset.train_dense, 
                                                              num_instances=config.DATA.NUM_INSTANCES, 
                                                              seed=config.SEED)
-            # split each original training video into a series of short videos and sample one clip for each short video during training
             trainloader = DataLoaderX(
                 dataset=VideoDataset(dataset.train_dense, spatial_transform_train, temporal_transform_train),
                 sampler=train_sampler,
@@ -111,7 +109,6 @@ def build_dataloader(config):
             train_sampler = DistributedRandomIdentitySampler(dataset.train, 
                                                              num_instances=config.DATA.NUM_INSTANCES, 
                                                              seed=config.SEED)
-            # sample one clip for each original training video during training
             trainloader = DataLoaderX(
                 dataset=VideoDataset(dataset.train, spatial_transform_train, temporal_transform_train),
                 sampler=train_sampler,
@@ -131,41 +128,61 @@ def build_dataloader(config):
             pin_memory=True, drop_last=False, shuffle=False)
 
         return trainloader, queryloader, galleryloader, dataset, train_sampler
-    # image dataset
+    # image dataset 인 경우
     else:
         transform_train, transform_test = build_img_transforms(config)
         train_sampler = DistributedRandomIdentitySampler(dataset.train, 
                                                          num_instances=config.DATA.NUM_INSTANCES, 
                                                          seed=config.SEED)
-        trainloader = DataLoaderX(dataset=ImageDataset(dataset.train, transform=transform_train),
-                                 sampler=train_sampler,
-                                 batch_size=config.DATA.TRAIN_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                                 pin_memory=True, drop_last=True)
-
-        galleryloader = DataLoaderX(dataset=ImageDataset(dataset.gallery, transform=transform_test),
-                                   sampler=DistributedInferenceSampler(dataset.gallery),
-                                   batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                                   pin_memory=True, drop_last=False, shuffle=False)
-
+        # 기본 ImageDataset 생성
+        from data.dataset_loader import ImageDataset  # 이미 import 되어 있을 수 있음.
+        train_ds = ImageDataset(dataset.train, transform=transform_train)
+        # diffusion augmentation 옵션 적용
+        if getattr(config, "diffusion_aug", False):
+            from augment.diffusion_aug import DiffusionAugmentDataset
+            train_ds = DiffusionAugmentDataset(
+                train_ds, 
+                prob=config.aug_prob, 
+                sd_model=config.sd_model, 
+                controlnet=config.controlnet
+            )
+            import logging
+            logger = logging.getLogger('reid')
+            expected_aug = int(config.aug_prob * len(dataset.train))
+            logger.info(f"Diffusion Augmentation enabled: expected augmented {expected_aug} of {len(dataset.train)} images, raw images {len(dataset.train)-expected_aug}.")
+        
+        trainloader = DataLoaderX(
+            dataset=train_ds,
+            sampler=train_sampler,
+            batch_size=config.DATA.TRAIN_BATCH, num_workers=config.DATA.NUM_WORKERS,
+            pin_memory=True, drop_last=True)
+        
+        galleryloader = DataLoaderX(
+            dataset=ImageDataset(dataset.gallery, transform=transform_test),
+            sampler=DistributedInferenceSampler(dataset.gallery),
+            batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
+            pin_memory=True, drop_last=False, shuffle=False)
+        
         if config.DATA.DATASET == 'prcc':
-            queryloader_same = DataLoaderX(dataset=ImageDataset(dataset.query_same, transform=transform_test),
-                                     sampler=DistributedInferenceSampler(dataset.query_same),
-                                     batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                                     pin_memory=True, drop_last=False, shuffle=False)
-            queryloader_diff = DataLoaderX(dataset=ImageDataset(dataset.query_diff, transform=transform_test),
-                                     sampler=DistributedInferenceSampler(dataset.query_diff),
-                                     batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                                     pin_memory=True, drop_last=False, shuffle=False)
-
+            queryloader_same = DataLoaderX(
+                dataset=ImageDataset(dataset.query_same, transform=transform_test),
+                sampler=DistributedInferenceSampler(dataset.query_same),
+                batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
+                pin_memory=True, drop_last=False, shuffle=False)
+            queryloader_diff = DataLoaderX(
+                dataset=ImageDataset(dataset.query_diff, transform=transform_test),
+                sampler=DistributedInferenceSampler(dataset.query_diff),
+                batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
+                pin_memory=True, drop_last=False, shuffle=False)
             return trainloader, queryloader_same, queryloader_diff, galleryloader, dataset, train_sampler
         else:
-            queryloader = DataLoaderX(dataset=ImageDataset(dataset.query, transform=transform_test),
-                                     sampler=DistributedInferenceSampler(dataset.query),
-                                     batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                                     pin_memory=True, drop_last=False, shuffle=False)
-
+            queryloader = DataLoaderX(
+                dataset=ImageDataset(dataset.query, transform=transform_test),
+                sampler=DistributedInferenceSampler(dataset.query),
+                batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
+                pin_memory=True, drop_last=False, shuffle=False)
             return trainloader, queryloader, galleryloader, dataset, train_sampler
 
-    
 
-    
+
+
