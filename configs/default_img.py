@@ -9,7 +9,8 @@ _C = CN()
 # -----------------------------------------------------------------------------
 _C.DATA = CN()
 # Root path for dataset directory
-_C.DATA.ROOT = '/home/guxinqian/data'
+_C.DATA.ROOT = '/data1/egene/ccreid/'
+
 # Dataset for evaluation
 _C.DATA.DATASET = 'ltcc'
 # Workers for dataloader
@@ -120,7 +121,7 @@ _C.EVAL_MODE = False
 # GPU device ids for CUDA_VISIBLE_DEVICES
 _C.GPU = '0'
 # Path to output folder, overwritten by command line argument
-_C.OUTPUT = '/data/guxinqian/logs/'
+_C.OUTPUT = 'logs/'
 # Tag of experiment, overwritten by command line argument
 _C.TAG = 'res50-ce-cal'
 
@@ -148,7 +149,8 @@ def update_config(config, args):
     if args.gpu:
         config.GPU = args.gpu
     if args.amp:
-        config.TRAIN.AMP = True
+        # config.TRAIN.AMP = True
+        config.TRAIN.AMP = False
 
     # output folder
     config.OUTPUT = os.path.join(config.OUTPUT, config.DATA.DATASET, config.TAG)

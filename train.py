@@ -2,7 +2,6 @@ import time
 import datetime
 import logging
 import torch
-from apex import amp
 from tools.utils import AverageMeter
 
 
@@ -39,11 +38,7 @@ def train_cal(config, epoch, model, classifier, clothes_classifier, criterion_cl
         clothes_loss = criterion_clothes(pred_clothes, clothes_ids)
         if epoch >= config.TRAIN.START_EPOCH_CC:
             optimizer_cc.zero_grad()
-            if config.TRAIN.AMP:
-                with amp.scale_loss(clothes_loss, optimizer_cc) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                clothes_loss.backward()
+            clothes_loss.backward()
             optimizer_cc.step()
 
         # Update the backbone
@@ -59,11 +54,7 @@ def train_cal(config, epoch, model, classifier, clothes_classifier, criterion_cl
         else:
             loss = cla_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss   
         optimizer.zero_grad()
-        if config.TRAIN.AMP:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        loss.backward()
         optimizer.step()
 
         # statistics
@@ -128,11 +119,7 @@ def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, crite
             loss = cla_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss  
 
         optimizer.zero_grad()
-        if config.TRAIN.AMP:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
+        loss.backward()
         optimizer.step()
 
         # statistics
