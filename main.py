@@ -106,10 +106,8 @@ def main():
     print(f"ControlNet Model: {getattr(config, 'DIFFUSION_AUG.CONTROLNET', None)}")
 
     # Build dataloader
-    print(f"DATA.DATASET: {config.DATA.DATASET}")  # 데이터셋 이름 확인
-
     result = build_dataloader(config)
-    print(f"build_dataloader() 반환 값 개수: {len(result)}")
+    
 
     # 데이터셋 종류에 관계없이 5개의 변수로 언패킹
     trainloader, queryloader, galleryloader, dataset, train_sampler = result

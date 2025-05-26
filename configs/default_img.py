@@ -87,12 +87,25 @@ _C.LOSS.DYNAMIC_EPSILON = True
 _C.LOSS.ALPHA_SCALE = 10.0
 # Memory bank momentum
 _C.LOSS.MOMENTUM = 0.1
+# Dual Temperature 사용 여부
+_C.LOSS.DUAL_TEMPERATURE = True
+# 최소 온도값
+_C.LOSS.TEMP_MIN = 0.5
+# 최대 온도값
+_C.LOSS.TEMP_MAX = 2.0
+
+# Entropy-Ratio Clipping 사용 여부
+_C.LOSS.ENTROPY_CLIP = True
+# 최소 epsilon 값
+_C.LOSS.EPSILON_MIN = 0.01
+# 최대 epsilon 값
+_C.LOSS.EPSILON_MAX = 0.3
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.MAX_EPOCH = 60
+_C.TRAIN.MAX_EPOCH = 120
 # Start epoch for clothes classification
 _C.TRAIN.START_EPOCH_CC = 25
 # Start epoch for adversarial training

@@ -49,7 +49,13 @@ def build_losses(config, num_train_clothes):
             scale=config.LOSS.SCALE,
             epsilon=config.LOSS.EPSILON,
             use_dynamic_epsilon=config.LOSS.DYNAMIC_EPSILON,
-            alpha_scale=config.LOSS.ALPHA_SCALE
+            alpha_scale=config.LOSS.ALPHA_SCALE,
+            use_dual_temperature=config.LOSS.DUAL_TEMPERATURE,
+            temp_min=config.LOSS.TEMP_MIN,
+            temp_max=config.LOSS.TEMP_MAX,
+            use_entropy_clip=config.LOSS.ENTROPY_CLIP,
+            epsilon_min=config.LOSS.EPSILON_MIN,
+            epsilon_max=config.LOSS.EPSILON_MAX
         )
     elif config.LOSS.CAL == 'cal_with_memory':
         criterion_cal = ClothesBasedAdversarialLossWithMemoryBank(
@@ -59,7 +65,13 @@ def build_losses(config, num_train_clothes):
             scale=config.LOSS.SCALE,
             epsilon=config.LOSS.EPSILON,
             use_dynamic_epsilon=config.LOSS.DYNAMIC_EPSILON,
-            alpha_scale=config.LOSS.ALPHA_SCALE
+            alpha_scale=config.LOSS.ALPHA_SCALE,
+            use_dual_temperature=config.LOSS.DUAL_TEMPERATURE,
+            temp_min=config.LOSS.TEMP_MIN,
+            temp_max=config.LOSS.TEMP_MAX,
+            use_entropy_clip=config.LOSS.ENTROPY_CLIP,
+            epsilon_min=config.LOSS.EPSILON_MIN,
+            epsilon_max=config.LOSS.EPSILON_MAX
         )
     else:
         criterion_cal = None
