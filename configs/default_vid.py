@@ -63,7 +63,7 @@ _C.MODEL.AP3D.CONTRACTIVE_ATT = True
 # -----------------------------------------------------------------------------
 _C.LOSS = CN()
 # Classification loss
-_C.LOSS.CLA_LOSS = 'crossentropy'
+_C.LOSS.CLA_LOSS = 'ce'
 # Clothes classification loss
 _C.LOSS.CLOTHES_CLA_LOSS = 'cosface'
 # Scale for classification loss
@@ -82,8 +82,14 @@ _C.LOSS.PAIR_M = 0.3
 _C.LOSS.CAL = 'cal'
 # Epsilon for clothes-based adversarial loss
 _C.LOSS.EPSILON = 0.1
-# Momentum for clothes-based adversarial loss with memory bank
-_C.LOSS.MOMENTUM = 0.
+# Scale for clothes-based adversarial loss
+_C.LOSS.SCALE = 16
+# 동적 epsilon 사용 여부
+_C.LOSS.DYNAMIC_EPSILON = True
+# 엔트로피 차이 스케일링 파라미터
+_C.LOSS.ALPHA_SCALE = 10.0
+# Memory bank momentum
+_C.LOSS.MOMENTUM = 0.1
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------

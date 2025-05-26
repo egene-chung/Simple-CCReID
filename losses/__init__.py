@@ -45,11 +45,23 @@ def build_losses(config, num_train_clothes):
 
     # Build clothes-based adversarial loss
     if config.LOSS.CAL == 'cal':
-        criterion_cal = ClothesBasedAdversarialLoss(scale=config.LOSS.CLA_S, epsilon=config.LOSS.EPSILON)
-    elif config.LOSS.CAL == 'calwithmemory':
-        criterion_cal = ClothesBasedAdversarialLossWithMemoryBank(num_clothes=num_train_clothes, feat_dim=config.MODEL.FEATURE_DIM,
-                             momentum=config.LOSS.MOMENTUM, scale=config.LOSS.CLA_S, epsilon=config.LOSS.EPSILON)
+        criterion_cal = ClothesBasedAdversarialLoss(
+            scale=config.LOSS.SCALE,
+            epsilon=config.LOSS.EPSILON,
+            use_dynamic_epsilon=config.LOSS.DYNAMIC_EPSILON,
+            alpha_scale=config.LOSS.ALPHA_SCALE
+        )
+    elif config.LOSS.CAL == 'cal_with_memory':
+        criterion_cal = ClothesBasedAdversarialLossWithMemoryBank(
+            num_clothes=num_train_clothes,
+            feat_dim=config.MODEL.FEATURE_DIM,
+            momentum=config.LOSS.MOMENTUM,
+            scale=config.LOSS.SCALE,
+            epsilon=config.LOSS.EPSILON,
+            use_dynamic_epsilon=config.LOSS.DYNAMIC_EPSILON,
+            alpha_scale=config.LOSS.ALPHA_SCALE
+        )
     else:
-        raise KeyError("Invalid clothing classification loss: '{}'".format(config.LOSS.CAL))
+        criterion_cal = None
 
     return criterion_cla, criterion_pair, criterion_clothes, criterion_cal

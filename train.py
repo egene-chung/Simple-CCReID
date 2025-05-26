@@ -84,7 +84,7 @@ def train_cal(config, epoch, model, classifier, clothes_classifier, criterion_cl
 
 
 def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, criterion_pair, 
-    criterion_adv, optimizer, trainloader, pid2clothes):
+                        criterion_adv, optimizer, trainloader, pid2clothes, max_epoch=None):
     logger = logging.getLogger('reid.train')
     batch_cla_loss = AverageMeter()
     batch_pair_loss = AverageMeter()
@@ -97,14 +97,14 @@ def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, crite
     classifier.train()
 
     end = time.time()
-    for batch_idx, (imgs, pids, camids, clothes_ids) in enumerate(trainloader):
+    for idx, (imgs, pids, _, clothes_ids) in enumerate(trainloader):
         # Get all positive clothes classes (belonging to the same identity) for each sample
         pos_mask = pid2clothes[pids]
         imgs, pids, clothes_ids, pos_mask = imgs.cuda(), pids.cuda(), clothes_ids.cuda(), pos_mask.float().cuda()
         # Measure data loading time
         data_time.update(time.time() - end)
         # Forward
-        features = model(imgs)
+        features, cls_score = model(imgs)
         outputs = classifier(features)
         _, preds = torch.max(outputs.data, 1)
 
@@ -113,7 +113,13 @@ def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, crite
         pair_loss = criterion_pair(features, pids)
 
         if epoch >= config.TRAIN.START_EPOCH_ADV:
-            adv_loss = criterion_adv(features, clothes_ids, pos_mask)
+            adv_loss = criterion_adv(
+                features, clothes_ids, pos_mask, 
+                clothes_logits=clothes_score,
+                id_logits=cls_score,
+                epoch=epoch,
+                max_epoch=max_epoch or config.TRAIN.MAX_EPOCH
+            )
             loss = cla_loss + adv_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss   
         else:
             loss = cla_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss  

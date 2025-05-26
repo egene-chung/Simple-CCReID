@@ -57,10 +57,10 @@ _C.MODEL.POOLING.P = 3
 # Losses for training 
 # -----------------------------------------------------------------------------
 _C.LOSS = CN()
-# Classification loss
-_C.LOSS.CLA_LOSS = 'crossentropy'
+# ID Loss
+_C.LOSS.ID = 'ce'
 # Clothes classification loss
-_C.LOSS.CLOTHES_CLA_LOSS = 'cosface'
+_C.LOSS.CLA_LOSS = 'ce'
 # Scale for classification loss
 _C.LOSS.CLA_S = 16.
 # Margin for classification loss
@@ -73,12 +73,20 @@ _C.LOSS.PAIR_LOSS_WEIGHT = 0.0
 _C.LOSS.PAIR_S = 16.
 # Margin for pairwise loss
 _C.LOSS.PAIR_M = 0.3
+# Clothes classification loss
+_C.LOSS.CLOTHES_CLA_LOSS = 'crossentropy'
+# Softmax epsilon
+_C.LOSS.EPSILON = 0.1
 # Clothes-based adversarial loss
 _C.LOSS.CAL = 'cal'
-# Epsilon for clothes-based adversarial loss
-_C.LOSS.EPSILON = 0.1
-# Momentum for clothes-based adversarial loss with memory bank
-_C.LOSS.MOMENTUM = 0.
+# Scale for clothes-based adversarial loss
+_C.LOSS.SCALE = 16
+# 동적 epsilon 사용 여부
+_C.LOSS.DYNAMIC_EPSILON = True
+# 엔트로피 차이 스케일링 파라미터
+_C.LOSS.ALPHA_SCALE = 10.0
+# Memory bank momentum
+_C.LOSS.MOMENTUM = 0.1
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------
@@ -162,5 +170,18 @@ def get_img_config(args):
     """Get a yacs CfgNode object with default values."""
     config = _C.clone()
     update_config(config, args)
+
+    # Make config mutable
+    config.defrost()
+
+    # Diffusion Augmentation 설정 추가
+    config.DIFFUSION_AUG = CN()
+    config.DIFFUSION_AUG.ENABLED = args.diffusion_aug
+    config.DIFFUSION_AUG.PROB = args.aug_prob
+    config.DIFFUSION_AUG.SD_MODEL = args.sd_model
+    config.DIFFUSION_AUG.CONTROLNET = args.controlnet
+
+    # Freeze config again
+    config.freeze()
 
     return config
