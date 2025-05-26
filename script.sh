@@ -4,7 +4,7 @@
 
 # LTCC dataset
 # 2개의 GPU 사용할 땐 nproc per mode를 2로 설정하고, 1개 사용할 땐 1로 설정
-python3 -m torch.distributed.launch --nproc_per_node=1 --master_port 12345 main.py --dataset ltcc --cfg configs/res50_cels_cal.yaml --gpu 1 #
+python3 -m torch.distributed.launch --nproc_per_node=1 --master_port 12346 main.py --dataset ltcc --cfg configs/res50_cels_cal.yaml --gpu 5 
 
 # # For PRCC dataset
 # python -m torch.distributed.launch --nproc_per_node=2 --master_port 12345 main.py --dataset prcc --cfg configs/res50_cels_cal.yaml --gpu 0,1 #
