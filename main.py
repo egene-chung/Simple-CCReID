@@ -6,6 +6,7 @@ import argparse
 import logging
 import os.path as osp
 import numpy as np
+import multiprocessing
 
 import torch
 import torch.nn as nn
@@ -24,7 +25,11 @@ from losses import build_losses
 from tools.utils import save_checkpoint, set_seed, get_logger
 from train import train_cal, train_cal_with_memory
 from test import test, test_prcc
+from yacs.config import CfgNode as CN
 
+
+# CUDA와 멀티프로세싱 호환을 위해 'spawn' 방식 사용
+multiprocessing.set_start_method('spawn', force=True)
 
 VID_DATASET = ['ccvid']
 
@@ -42,6 +47,7 @@ def parse_option():
     parser.add_argument('--eval', action='store_true', help="evaluation only")
     parser.add_argument('--tag', type=str, help='tag for log file')
     parser.add_argument('--gpu', default='4', type=str, help='gpu device ids for CUDA_VISIBLE_DEVICES')
+    # Diffusion Augmentation
     parser.add_argument("--diffusion-aug", action="store_true", help="Enable diffusion augmentation")
     parser.add_argument("--aug-prob", type=float, default=0.3, help="Probability for diffusion augmentation")
     parser.add_argument("--sd-model", type=str, default="runwayml/stable-diffusion-v1-5", help="Stable Diffusion model name")
@@ -52,6 +58,19 @@ def parse_option():
         config = get_vid_config(args)
     else:
         config = get_img_config(args)
+
+    # Make config mutable
+    config.defrost()
+
+    # Diffusion Augmentation 설정 추가
+    config.DIFFUSION_AUG = CN()
+    config.DIFFUSION_AUG.ENABLED = args.diffusion_aug
+    config.DIFFUSION_AUG.PROB = args.aug_prob
+    config.DIFFUSION_AUG.SD_MODEL = args.sd_model
+    config.DIFFUSION_AUG.CONTROLNET = args.controlnet
+
+    # Freeze config again
+    config.freeze()
 
     return config
 
@@ -75,11 +94,26 @@ def main():
     logger.info(config)
     logger.info("-----------------------------------------")
 
+    # config 객체 내용 출력
+    print("Config:")
+    for k, v in config.__dict__.items():
+        print(f"  {k}: {v}")
+
+    # Diffusion 관련 설정 출력
+    print(f"Diffusion Augmentation Enabled: {getattr(config, 'DIFFUSION_AUG.ENABLED', False)}")
+    print(f"Diffusion Augmentation Probability: {getattr(config, 'DIFFUSION_AUG.PROB', None)}")
+    print(f"Stable Diffusion Model: {getattr(config, 'DIFFUSION_AUG.SD_MODEL', None)}")
+    print(f"ControlNet Model: {getattr(config, 'DIFFUSION_AUG.CONTROLNET', None)}")
+
     # Build dataloader
-    if config.DATA.DATASET == 'prcc':
-        trainloader, queryloader_same, queryloader_diff, galleryloader, dataset, train_sampler = build_dataloader(config)
-    else:
-        trainloader, queryloader, galleryloader, dataset, train_sampler = build_dataloader(config)    
+    print(f"DATA.DATASET: {config.DATA.DATASET}")  # 데이터셋 이름 확인
+
+    result = build_dataloader(config)
+    print(f"build_dataloader() 반환 값 개수: {len(result)}")
+
+    # 데이터셋 종류에 관계없이 5개의 변수로 언패킹
+    trainloader, queryloader, galleryloader, dataset, train_sampler = result
+
     # Define a matrix pid2clothes with shape (num_pids, num_clothes). 
     # pid2clothes[i, j] = 1 when j-th clothes belongs to i-th identity. Otherwise, pid2clothes[i, j] = 0.
     pid2clothes = torch.from_numpy(dataset.pid2clothes) # CPU에 생성됨
