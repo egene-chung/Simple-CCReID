@@ -138,24 +138,38 @@ def build_dataloader(config):
         from data.dataset_loader import ImageDataset  # 이미 import 되어 있을 수 있음.
         train_ds = ImageDataset(dataset.train, transform=transform_train)
         # diffusion augmentation 옵션 적용
-        if getattr(config, "diffusion_aug", False):
+        if hasattr(config, "DIFFUSION_AUG") and config.DIFFUSION_AUG.ENABLED:
+            # 로그 출력 추가
+            print(f"Diffusion Augmentation enabled with probability {config.DIFFUSION_AUG.PROB}")
             from augment.diffusion_aug import DiffusionAugmentDataset
             train_ds = DiffusionAugmentDataset(
                 train_ds, 
-                prob=config.aug_prob, 
-                sd_model=config.sd_model, 
-                controlnet=config.controlnet
+                config
             )
             import logging
             logger = logging.getLogger('reid')
-            expected_aug = int(config.aug_prob * len(dataset.train))
+            expected_aug = int(config.DIFFUSION_AUG.PROB * len(dataset.train))
             logger.info(f"Diffusion Augmentation enabled: expected augmented {expected_aug} of {len(dataset.train)} images, raw images {len(dataset.train)-expected_aug}.")
         
-        trainloader = DataLoaderX(
-            dataset=train_ds,
-            sampler=train_sampler,
-            batch_size=config.DATA.TRAIN_BATCH, num_workers=config.DATA.NUM_WORKERS,
-            pin_memory=True, drop_last=True)
+        # diffusion augmentation을 사용하는 경우 DataLoader 설정 변경
+        if hasattr(config, "DIFFUSION_AUG") and config.DIFFUSION_AUG.ENABLED:
+            trainloader = DataLoaderX(
+                dataset=train_ds,
+                sampler=train_sampler,
+                batch_size=config.DATA.TRAIN_BATCH, 
+                num_workers=0,  # 멀티프로세싱 비활성화
+                pin_memory=True, 
+                drop_last=True
+            )
+        else:
+            trainloader = DataLoaderX(
+                dataset=train_ds,
+                sampler=train_sampler,
+                batch_size=config.DATA.TRAIN_BATCH, 
+                num_workers=config.DATA.NUM_WORKERS,
+                pin_memory=True, 
+                drop_last=True
+            )
         
         galleryloader = DataLoaderX(
             dataset=ImageDataset(dataset.gallery, transform=transform_test),
@@ -163,25 +177,16 @@ def build_dataloader(config):
             batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
             pin_memory=True, drop_last=False, shuffle=False)
         
-        if config.DATA.DATASET == 'prcc':
-            queryloader_same = DataLoaderX(
-                dataset=ImageDataset(dataset.query_same, transform=transform_test),
-                sampler=DistributedInferenceSampler(dataset.query_same),
-                batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                pin_memory=True, drop_last=False, shuffle=False)
-            queryloader_diff = DataLoaderX(
-                dataset=ImageDataset(dataset.query_diff, transform=transform_test),
-                sampler=DistributedInferenceSampler(dataset.query_diff),
-                batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                pin_memory=True, drop_last=False, shuffle=False)
-            return trainloader, queryloader_same, queryloader_diff, galleryloader, dataset, train_sampler
-        else:
-            queryloader = DataLoaderX(
-                dataset=ImageDataset(dataset.query, transform=transform_test),
-                sampler=DistributedInferenceSampler(dataset.query),
-                batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
-                pin_memory=True, drop_last=False, shuffle=False)
-            return trainloader, queryloader, galleryloader, dataset, train_sampler
+        # LTCC 데이터셋 특화 처리
+        queryloader = DataLoaderX(
+            dataset=ImageDataset(dataset.query, transform=transform_test),
+            sampler=DistributedInferenceSampler(dataset.query),
+            batch_size=config.DATA.TEST_BATCH, num_workers=config.DATA.NUM_WORKERS,
+            pin_memory=True, drop_last=False, shuffle=False)
+        to_return = trainloader, queryloader, galleryloader, dataset, train_sampler
+
+    print(f"build_dataloader 반환 값 개수: {len(to_return)}, 데이터셋: {config.DATA.DATASET}")
+    return to_return
 
 
 
