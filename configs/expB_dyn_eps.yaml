@@ -1,0 +1,11 @@
+LOSS:
+  DYNAMIC_EPSILON: true
+
+DIFFUSION_AUG:
+  ENABLED: false
+
+WANDB:
+  NAME: "exp_B_dynamic_epsilon"  # Dynamic epsilon 실험
+  TAGS: ["dynamic_epsilon", "baseline"]
+  ENABLE: True  # wandb 사용 여부
+  PROJECT: "ccreid"  # wandb 프로젝트 이름 

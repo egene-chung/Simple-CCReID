@@ -9,7 +9,7 @@ _C = CN()
 # -----------------------------------------------------------------------------
 _C.DATA = CN()
 # Root path for dataset directory
-_C.DATA.ROOT = '/data1/egene/ccreid/'
+_C.DATA.ROOT = '/mnt/aix21204/datasets/LTCC/'
 
 # Dataset for evaluation
 _C.DATA.DATASET = 'ltcc'

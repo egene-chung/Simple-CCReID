@@ -1,0 +1,18 @@
+DATA:
+  TRAIN_BATCH: 64
+
+LOSS:
+  DYNAMIC_EPSILON: true
+
+TRAIN:
+  OPTIMIZER:
+    LR: 0.0007          # 7e-4
+
+DIFFUSION_AUG:
+  ENABLED: false
+
+WANDB:
+  NAME: "exp_D_large_batch"  # Large batch size 실험
+  TAGS: ["large_batch", "batch_size_study"]
+  ENABLE: True
+  PROJECT: "ccreid"

@@ -1,0 +1,13 @@
+LOSS:
+  DYNAMIC_EPSILON: true
+  MOMENTUM: 0.05
+  ALPHA_SCALE: 5.0
+
+DIFFUSION_AUG:
+  ENABLED: false
+
+WANDB:
+  NAME: "exp_E_momentum_alpha"  # Momentum alpha 실험
+  TAGS: ["momentum", "alpha_study"]
+  ENABLE: True
+  PROJECT: "ccreid"
