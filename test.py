@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import distributed as dist
 from tools.eval_metrics import evaluate, evaluate_with_clothes
+import wandb
 
 
 VID_DATASET = ['ccvid']
@@ -84,6 +85,14 @@ def extract_vid_feature(model, dataloader, vid2clip_index, data_length):
 
 
 def test(config, model, queryloader, galleryloader, dataset):
+    # wandb 초기화 (main process에서만)
+    if dist.get_rank() == 0:
+        wandb.init(
+            project="ccreid",  # 프로젝트 이름
+            name=config.WANDB.NAME if hasattr(config, 'WANDB') else None,
+            config=config
+        )
+        
     logger = logging.getLogger('reid.test')
     since = time.time()
     model.eval()
@@ -125,26 +134,48 @@ def test(config, model, queryloader, galleryloader, dataset):
 
     since = time.time()
     logger.info("Computing CMC and mAP")
+    # 일반적인 평가 결과 기록
     cmc, mAP = evaluate(distmat, q_pids, g_pids, q_camids, g_camids)
     logger.info("Results ---------------------------------------------------")
     logger.info('top1:{:.1%} top5:{:.1%} top10:{:.1%} top20:{:.1%} mAP:{:.1%}'.format(cmc[0], cmc[4], cmc[9], cmc[19], mAP))
-    logger.info("-----------------------------------------------------------")
-    time_elapsed = time.time() - since
-    logger.info('Using {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    
+    # wandb에 결과 기록
+    if dist.get_rank() == 0:
+        wandb.log({
+            "overall/top1": cmc[0] * 100,
+            "overall/top5": cmc[4] * 100,
+            "overall/top10": cmc[9] * 100,
+            "overall/top20": cmc[19] * 100,
+            "overall/mAP": mAP * 100
+        })
 
-    if config.DATA.DATASET in ['last', 'deepchange', 'vcclothes_sc', 'vcclothes_cc']: return cmc[0]
+    if config.DATA.DATASET in ['last', 'deepchange', 'vcclothes_sc', 'vcclothes_cc']: 
+        if dist.get_rank() == 0:
+            wandb.finish()
+        return cmc[0]
 
-    logger.info("Computing CMC and mAP only for the same clothes setting")
+    # Same clothes 설정 결과 기록
     cmc, mAP = evaluate_with_clothes(distmat, q_pids, g_pids, q_camids, g_camids, q_clothes_ids, g_clothes_ids, mode='SC')
-    logger.info("Results ---------------------------------------------------")
-    logger.info('top1:{:.1%} top5:{:.1%} top10:{:.1%} top20:{:.1%} mAP:{:.1%}'.format(cmc[0], cmc[4], cmc[9], cmc[19], mAP))
-    logger.info("-----------------------------------------------------------")
+    if dist.get_rank() == 0:
+        wandb.log({
+            "same_clothes/top1": cmc[0] * 100,
+            "same_clothes/top5": cmc[4] * 100,
+            "same_clothes/top10": cmc[9] * 100,
+            "same_clothes/top20": cmc[19] * 100,
+            "same_clothes/mAP": mAP * 100
+        })
 
-    logger.info("Computing CMC and mAP only for clothes-changing")
+    # Clothes changing 결과 기록
     cmc, mAP = evaluate_with_clothes(distmat, q_pids, g_pids, q_camids, g_camids, q_clothes_ids, g_clothes_ids, mode='CC')
-    logger.info("Results ---------------------------------------------------")
-    logger.info('top1:{:.1%} top5:{:.1%} top10:{:.1%} top20:{:.1%} mAP:{:.1%}'.format(cmc[0], cmc[4], cmc[9], cmc[19], mAP))
-    logger.info("-----------------------------------------------------------")
+    if dist.get_rank() == 0:
+        wandb.log({
+            "clothes_changing/top1": cmc[0] * 100,
+            "clothes_changing/top5": cmc[4] * 100,
+            "clothes_changing/top10": cmc[9] * 100,
+            "clothes_changing/top20": cmc[19] * 100,
+            "clothes_changing/mAP": mAP * 100
+        })
+        wandb.finish()
 
     return cmc[0]
 
@@ -190,12 +221,26 @@ def test_prcc(model, queryloader_same, queryloader_diff, galleryloader, dataset)
     cmc, mAP = evaluate(distmat_same, qs_pids, g_pids, qs_camids, g_camids)
     logger.info("Results ---------------------------------------------------")
     logger.info('top1:{:.1%} top5:{:.1%} top10:{:.1%} top20:{:.1%} mAP:{:.1%}'.format(cmc[0], cmc[4], cmc[9], cmc[19], mAP))
-    logger.info("-----------------------------------------------------------")
+    if dist.get_rank() == 0:
+        wandb.log({
+            "prcc/same_clothes/top1": cmc[0] * 100,
+            "prcc/same_clothes/top5": cmc[4] * 100,
+            "prcc/same_clothes/top10": cmc[9] * 100,
+            "prcc/same_clothes/top20": cmc[19] * 100,
+            "prcc/same_clothes/mAP": mAP * 100
+        })
 
     logger.info("Computing CMC and mAP only for clothes changing")
     cmc, mAP = evaluate(distmat_diff, qd_pids, g_pids, qd_camids, g_camids)
     logger.info("Results ---------------------------------------------------")
     logger.info('top1:{:.1%} top5:{:.1%} top10:{:.1%} top20:{:.1%} mAP:{:.1%}'.format(cmc[0], cmc[4], cmc[9], cmc[19], mAP))
-    logger.info("-----------------------------------------------------------")
+    if dist.get_rank() == 0:
+        wandb.log({
+            "prcc/clothes_changing/top1": cmc[0] * 100,
+            "prcc/clothes_changing/top5": cmc[4] * 100,
+            "prcc/clothes_changing/top10": cmc[9] * 100,
+            "prcc/clothes_changing/top20": cmc[19] * 100,
+            "prcc/clothes_changing/mAP": mAP * 100
+        })
 
     return cmc[0]
