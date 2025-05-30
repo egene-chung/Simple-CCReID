@@ -2,12 +2,8 @@ LOSS:
   DYNAMIC_EPSILON: true
   TEMP_MIN: 0.3
   TEMP_MAX: 3.0
-
-DIFFUSION_AUG:
-  ENABLED: false
-
-WANDB:
-  NAME: "exp_C_temperature_sweep"  # Temperature sweep 실험
-  TAGS: ["temperature_sweep", "dynamic_epsilon"]
-  ENABLE: True
-  PROJECT: "ccreid"
+# WANDB:
+#   NAME: "exp_C_temperature_sweep" # Temperature sweep 실험
+#   TAGS: ["temperature_sweep", "dynamic_epsilon"]
+#   ENABLE: True
+#   PROJECT: "ccreid"

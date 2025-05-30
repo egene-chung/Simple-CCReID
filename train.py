@@ -3,6 +3,7 @@ import datetime
 import logging
 import torch
 from tools.utils import AverageMeter
+from losses import DynamicLossWrapper
 
 
 def train_cal(config, epoch, model, classifier, clothes_classifier, criterion_cla, criterion_pair, 
@@ -84,7 +85,7 @@ def train_cal(config, epoch, model, classifier, clothes_classifier, criterion_cl
 
 
 def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, criterion_pair, 
-                        criterion_adv, optimizer, trainloader, pid2clothes, max_epoch=None):
+                         criterion_adv, optimizer, trainloader, pid2clothes, max_epoch=None):
     logger = logging.getLogger('reid.train')
     batch_cla_loss = AverageMeter()
     batch_pair_loss = AverageMeter()
@@ -96,6 +97,22 @@ def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, crite
     model.train()
     classifier.train()
 
+    # Dynamic Loss Wrapper 초기화 (이 부분이 빠져있었음)
+    if config.TRAIN.DYNAMIC_LOSS:
+        # 모델이 DDP로 래핑된 경우 module에 접근
+        actual_model = model.module if hasattr(model, 'module') else model
+        
+        # loss_wrapper가 없는 경우에만 초기화
+        if not hasattr(actual_model, 'loss_wrapper'):
+            print(f"Dynamic Loss Wrapper 초기화 중...")
+            actual_model.loss_wrapper = DynamicLossWrapper(
+                num_tasks=4,
+                twa_temp=config.TRAIN.DYN_LOSS.TWA_TEMP
+            ).cuda()
+            # loss wrapper의 파라미터도 optimizer에 추가
+            optimizer.add_param_group({'params': actual_model.loss_wrapper.parameters()})
+            print(f"Dynamic Loss Wrapper 초기화 완료!")
+    
     end = time.time()
     for idx, (imgs, pids, _, clothes_ids) in enumerate(trainloader):
         # Get all positive clothes classes (belonging to the same identity) for each sample
@@ -104,7 +121,7 @@ def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, crite
         # Measure data loading time
         data_time.update(time.time() - end)
         # Forward
-        features, cls_score = model(imgs)
+        features = model(imgs)  # 모델에서 3개 값 반환
         outputs = classifier(features)
         _, preds = torch.max(outputs.data, 1)
 
@@ -112,17 +129,36 @@ def train_cal_with_memory(config, epoch, model, classifier, criterion_cla, crite
         cla_loss = criterion_cla(outputs, pids)
         pair_loss = criterion_pair(features, pids)
 
+        # adv_loss는 조건부로 계산
         if epoch >= config.TRAIN.START_EPOCH_ADV:
-            adv_loss = criterion_adv(
-                features, clothes_ids, pos_mask, 
-                clothes_logits=clothes_score,
-                id_logits=cls_score,
-                epoch=epoch,
-                max_epoch=max_epoch or config.TRAIN.MAX_EPOCH
-            )
-            loss = cla_loss + adv_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss   
+            adv_loss = criterion_adv(features, clothes_ids, pos_mask)
         else:
-            loss = cla_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss  
+            adv_loss = torch.tensor(0.0, device=features.device)  # 0으로 설정
+
+        # Dynamic Loss는 워밍업 기간 이후 항상 적용
+        if config.TRAIN.DYNAMIC_LOSS and epoch >= config.TRAIN.DYN_LOSS.WARMUP_EPOCHS:
+            # 분산 모델 처리
+            actual_model = model.module if hasattr(model, 'module') else model
+            
+            # 손실 사전 구성
+            loss_dict = {
+                'id': cla_loss,
+                'pair': pair_loss,
+                'var': (features - features.mean(0)).pow(2).sum(1).mean()
+            }
+            
+            # adv_loss가 활성화된 경우에만 포함
+            if epoch >= config.TRAIN.START_EPOCH_ADV:
+                loss_dict['cal'] = adv_loss
+                
+            # Dynamic Loss Wrapper 호출
+            loss = actual_model.loss_wrapper(epoch, loss_dict)
+        else:
+            # 일반적인 손실 합산
+            if epoch >= config.TRAIN.START_EPOCH_ADV:
+                loss = cla_loss + adv_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss
+            else:
+                loss = cla_loss + config.LOSS.PAIR_LOSS_WEIGHT * pair_loss
 
         optimizer.zero_grad()
         loss.backward()

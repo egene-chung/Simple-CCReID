@@ -9,7 +9,7 @@ _C = CN()
 # -----------------------------------------------------------------------------
 _C.DATA = CN()
 # Root path for dataset directory
-_C.DATA.ROOT = '/mnt/aix21204/datasets/LTCC/'
+_C.DATA.ROOT = '/data1/egene/ccreid/'
 
 # Dataset for evaluation
 _C.DATA.DATASET = 'ltcc'
@@ -79,6 +79,7 @@ _C.LOSS.CLOTHES_CLA_LOSS = 'crossentropy'
 _C.LOSS.EPSILON = 0.1
 # Clothes-based adversarial loss
 _C.LOSS.CAL = 'cal'
+# _C.LOSS.CAL = 'calwithmemory'
 # Scale for clothes-based adversarial loss
 _C.LOSS.SCALE = 16
 # 동적 epsilon 사용 여부
@@ -105,7 +106,7 @@ _C.LOSS.EPSILON_MAX = 0.3
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.MAX_EPOCH = 120
+_C.TRAIN.MAX_EPOCH = 60
 # Start epoch for clothes classification
 _C.TRAIN.START_EPOCH_CC = 25
 # Start epoch for adversarial training
@@ -124,6 +125,13 @@ _C.TRAIN.LR_SCHEDULER.STEPSIZE = [20, 40]
 _C.TRAIN.LR_SCHEDULER.DECAY_RATE = 0.1
 # Using amp for training
 _C.TRAIN.AMP = False
+
+# Dynamic Loss Wrapper 설정
+_C.TRAIN.DYNAMIC_LOSS = True  # Dynamic Loss 사용 여부
+_C.TRAIN.DYN_LOSS = CN()
+_C.TRAIN.DYN_LOSS.TWA_TEMP = 2  # DWA temperature
+_C.TRAIN.DYN_LOSS.ETA = 0.05    # 가중치 업데이트 속도
+_C.TRAIN.DYN_LOSS.WARMUP_EPOCHS = 5  # 가중치 안정화 기간
 # -----------------------------------------------------------------------------
 # Testing settings
 # -----------------------------------------------------------------------------

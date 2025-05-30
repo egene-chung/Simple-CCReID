@@ -1,4 +1,5 @@
 from torch import nn
+from losses.dynamic_loss import DynamicLossWrapper
 from losses.cross_entropy_loss_with_label_smooth import CrossEntropyWithLabelSmooth
 from losses.triplet_loss import TripletLoss
 from losses.contrastive_loss import ContrastiveLoss
@@ -10,12 +11,12 @@ from losses.clothes_based_adversarial_loss import ClothesBasedAdversarialLoss, C
 
 def build_losses(config, num_train_clothes):
     # Build identity classification loss
-    if config.LOSS.CLA_LOSS == 'crossentropy':
+    if config.LOSS.CLA_LOSS == 'ce' or config.LOSS.CLA_LOSS == 'crossentropy':
         criterion_cla = nn.CrossEntropyLoss()
     elif config.LOSS.CLA_LOSS == 'crossentropylabelsmooth':
         criterion_cla = CrossEntropyWithLabelSmooth()
     elif config.LOSS.CLA_LOSS == 'arcface':
-        criterion_cla = ArcFaceLoss(scale=config.LOSS.CLA_S, margin=config.LOSS.CLA_M)
+        criterion_cla = ArcFaceLoss(scale=config.LOSS.CLA_S, margin=config.LOSS.CLA_M) 
     elif config.LOSS.CLA_LOSS == 'cosface':
         criterion_cla = CosFaceLoss(scale=config.LOSS.CLA_S, margin=config.LOSS.CLA_M)
     elif config.LOSS.CLA_LOSS == 'circle':
@@ -57,7 +58,7 @@ def build_losses(config, num_train_clothes):
             epsilon_min=config.LOSS.EPSILON_MIN,
             epsilon_max=config.LOSS.EPSILON_MAX
         )
-    elif config.LOSS.CAL == 'cal_with_memory':
+    elif config.LOSS.CAL == 'cal_with_memory' or config.LOSS.CAL == 'calwithmemory':
         criterion_cal = ClothesBasedAdversarialLossWithMemoryBank(
             num_clothes=num_train_clothes,
             feat_dim=config.MODEL.FEATURE_DIM,

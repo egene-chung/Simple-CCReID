@@ -37,3 +37,5 @@ If you use our code/dataset in your research or wish to refer to the baseline re
 - [deep-person-reid](https://github.com/KaiyangZhou/deep-person-reid)
 - [Pytorch ReID](https://github.com/layumi/Person_reID_baseline_pytorch)
 - [Simple-CCReID](https://github.com/guxinqian/Simple-CCReID)
+
+ <!-- tensorboard --logdir=/home/egene/devel2/Simple-CCReID/logs/tensorboard  -->

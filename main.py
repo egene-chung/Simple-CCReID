@@ -7,6 +7,7 @@ import logging
 import os.path as osp
 import numpy as np
 import multiprocessing
+import wandb
 
 import torch
 import torch.nn as nn
@@ -24,8 +25,11 @@ from models import build_model
 from losses import build_losses
 from tools.utils import save_checkpoint, set_seed, get_logger
 from train import train_cal, train_cal_with_memory
-from test import test, test_prcc
+from test import test, test_prcc, extract_features_with_clothes, visualize_tsne_with_clothes
 from yacs.config import CfgNode as CN
+
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 
 
 # CUDA와 멀티프로세싱 호환을 위해 'spawn' 방식 사용
@@ -77,11 +81,23 @@ def parse_option():
 
 def main():
     config = parse_option()
-    # Set GPU
+
+    # GPU 설정
     os.environ['CUDA_VISIBLE_DEVICES'] = config.GPU
-    # Init dist
+    
+    # 분산 학습 초기화
     dist.init_process_group(backend="nccl", init_method='env://')
     local_rank = dist.get_rank()
+    
+    # wandb 대신 tensorboard 사용
+    if local_rank == 0:
+        # tensorboard writer 초기화
+        tb_log_dir = osp.join(config.OUTPUT, 'tensorboard')
+        os.makedirs(tb_log_dir, exist_ok=True)
+        writer = SummaryWriter(log_dir=tb_log_dir)
+    else:
+        writer = None
+    
     # Set random seed
     set_seed(config.SEED + local_rank)
     # get logger
@@ -189,6 +205,8 @@ def main():
     train_time = 0
     best_rank1 = -np.inf
     best_epoch = 0
+    best_model_state = None  # 최고 성능 모델 상태 저장용
+    
     logger.info("==> Start training")
     for epoch in range(start_epoch, config.TRAIN.MAX_EPOCH):
         train_sampler.set_epoch(epoch)
@@ -201,43 +219,13 @@ def main():
                 criterion_clothes, criterion_adv, optimizer, optimizer_cc, trainloader, pid2clothes)
         train_time += round(time.time() - start_train_time)        
         
-        if (epoch+1) > config.TEST.START_EVAL and config.TEST.EVAL_STEP > 0 and \
-            (epoch+1) % config.TEST.EVAL_STEP == 0 or (epoch+1) == config.TRAIN.MAX_EPOCH:
-            logger.info("==> Test")
-            torch.cuda.empty_cache()
-            if config.DATA.DATASET == 'prcc':
-                rank1 = test_prcc(model, queryloader_same, queryloader_diff, galleryloader, dataset)
-            else:
-                rank1 = test(config, model, queryloader, galleryloader, dataset)
-            torch.cuda.empty_cache()
-            is_best = rank1 > best_rank1
-            if is_best:
-                best_rank1 = rank1
-                best_epoch = epoch + 1
-
-            model_state_dict = model.module.state_dict()
-            classifier_state_dict = classifier.module.state_dict()
-            if config.LOSS.CAL == 'calwithmemory':
-                clothes_classifier_state_dict = criterion_adv.state_dict()
-            else:
-                clothes_classifier_state_dict = clothes_classifier.module.state_dict()
-            if local_rank == 0:
-                save_checkpoint({
-                    'model_state_dict': model_state_dict,
-                    'classifier_state_dict': classifier_state_dict,
-                    'clothes_classifier_state_dict': clothes_classifier_state_dict,
-                    'rank1': rank1,
-                    'epoch': epoch,
-                }, is_best, osp.join(config.OUTPUT, 'checkpoint_ep' + str(epoch+1) + '.pth.tar'))
-        scheduler.step()
-
-    logger.info("==> Best Rank-1 {:.1%}, achieved at epoch {}".format(best_rank1, best_epoch))
-
-    elapsed = round(time.time() - start_time)
-    elapsed = str(datetime.timedelta(seconds=elapsed))
-    train_time = str(datetime.timedelta(seconds=train_time))
-    logger.info("Finished. Total elapsed time (h:m:s): {}. Training time (h:m:s): {}.".format(elapsed, train_time))
+        if (epoch+1) > config.TEST.START_EVAL:
+            # writer 전달
+            rank1 = test(config, model, queryloader, galleryloader, dataset, epoch, local_rank, writer)
     
+    # tensorboard 종료
+    if local_rank == 0 and writer is not None:
+        writer.close()
 
 if __name__ == '__main__':
     main()
